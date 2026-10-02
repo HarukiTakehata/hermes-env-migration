@@ -190,6 +190,19 @@ skill git repos → credential validation → cleanup. Generic; adapt paths/iden
       .bashrc/.profile，否则 tesseract 找不到语言包；
     - 用「ldd 无 not found + 真实渲染图 OCR」验证，不要只信二进制存在。
 
+14. **快照里的 `.ssh` 可能是软链存根（本流程最易踩）**：旧环境 shell-home 的 `.ssh` 常软链到
+    passwd home，快照若在不兼容的文件系统上打包，会把链接存成 `IntxLNK` 存根文件
+    （几十字节，内容是 UTF-16 的目标路径）——**不是真实私钥**。恢复前先判定：
+    `head -c 8 <key> | grep -q IntxLNK && echo 存根 || echo 真钥匙`（或看 `ssh-keygen -lf`）。
+    真实私钥通常不在快照里，而在单独的安全备份（如持久卷上的备份目录）——先去那里找。
+15. **凭据目录的查找根不同，别放错**：`git`/`gpg`/`aws` 都按 **`$HOME`**（shell home）查找
+    `.gitconfig`/`.gnupg`/`.aws`；只有 **`ssh` 按 passwd home** 的 `.ssh`。
+    - 复制 `.gnupg` 时**跳过 `S.gpg-agent*`**（旧遗留 unix socket，`shutil.copytree` 会报
+      `[Errno 6] No such device or address`）；改用自写递归复制跳过 socket/软链。
+    - `.gnupg` 目录需 700、内部文件 600，否则 gpg 报权限告警；AWS `credentials` 600、`config` 644。
+    - 验证：`echo test | gpg --batch --yes --sign --local-user <KEYID> --output /dev/null`（签名）+
+      `ssh -o BatchMode=yes -T git@github.com`（认证）。
+
 ## Support Files
 
 - `scripts/merge_hermes_home.py` — 幂等合并脚本（记忆→.env→凭据目录→技能→state.db）。

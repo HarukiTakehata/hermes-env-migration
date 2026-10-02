@@ -13,11 +13,27 @@
 ```python
 cur_cols = [d[1] for d in cur.execute('pragma table_info(sessions)')]
 old_cols = [d[1] for d in old.execute('pragma table_info(sessions)')]
-# 旧行映射到当前列: vals = [d.get(c) for c in cur_cols]  # 缺失新列自动补 None
-# messages 列集合必须一致(不一致先 assert 停下), 一致即可按列名插入
+# 断言：旧库列集 ⊆ 当前库列集 (old_cols <= cur_cols)；仅当旧库有当前库缺失列时才停下人工决策
+# 插入只写「新旧共有的列」(用旧库列名)，当前库多出的列不写 -> 自动走其 DEFAULT
 ```
 
 实测：v23→v25 时 sessions 多了 `last_activity_at/last_activity_description/last_activity_provenance/title_source` 等列；messages 列集合两版一致。
+
+⚠️ **切勿 `vals = [d.get(c) for c in cur_cols]` 直接补 None**：当前库的新增列里有些是
+`NOT NULL DEFAULT x`（实测 v25→v30：messages 多 `_compressed_summary INTEGER NOT NULL DEFAULT 0`、
+`display_identity BLOB`、`display_order INTEGER`；sessions 多 `git_metadata_generation/hidden/
+transport_profile/tool_names/compression_recovery_deadline`，其中 `git_metadata_generation` 与
+`hidden` 是 `NOT NULL DEFAULT 0`）。补 None 会直接撞 NOT NULL 报错。正确做法：
+`ins_cols = [c for c in old_cols if c != 'id']`，INSERT 只列这些列，其余列交 DEFAULT
+（`active`/`compacted`/`_compressed_summary` 等即自动取默认，消息才会可见）。
+
+v25→v30 另两点实战补充：
+- **FTS 全自动**：新旧库的 `messages_fts`/`messages_fts_trigram` 都由 `messages` 上的 AFTER INSERT
+  触发器维护（触发器 WHEN 依赖 `state_meta.fts_rebuild_high_water`，缺该键时 `new.id > -1` 恒真、
+  正常触发）。所以插消息即自动建索引，无需手工 rebuild；插完核对
+  `count(messages_fts) == count(messages)` 即可。
+- **当前库 FTS 的 content 是视图** `messages_fts_src`（不是表 `messages`）——不要对它做 rebuild。
+- 旧库标题全部非空时（本次 142/142）逐个去重，冲突用完整 sid 后缀，逐行 try/except。
 
 ## 消息 id 重映射
 
