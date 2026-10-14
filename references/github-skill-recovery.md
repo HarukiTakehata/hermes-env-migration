@@ -47,6 +47,6 @@ mkdir -p repo && tar xzf repo.tar.gz -C repo --strip-components=1
 
 ## 5. 其他
 
-- 相关技能名引用（related_skills）里提到的技能可能根本没上传（本案例 `tesseract-ocr-chinese-image`、`video-content-summarizer` 在 GitHub 上不存在）——先搜再下结论，找不到就用已有技能的功能覆盖（内置 ocr-and-documents、multi-video-summarizer）。
+- 相关技能名引用（related_skills）里提到的技能可能根本没上传（本案例 `tesseract-ocr-chinese-image`、`video-content-summarizer` 在 GitHub 上不存在）——先搜再下结论，找不到就用已有技能的功能覆盖（内置 pdf 技能的 OCR 提取、multi-video-summarizer）。
 - 用户旧记忆里还有另一条路：`gh-proxy.org` / `github.chenc.dev` 镜像前缀（`git clone https://gh-proxy.org/https://github.com/...`），git 协议能通时可用。
 - 凭据键名参考：旧 `.env`/`.profile` 中 GitHub 用 `GITHUB_CLASSIC_PAT`（ghp_）与 `GITHUB_FINE_GRANTED_PAT`（github_pat_），旧 `GITHUB_TOKEN` 已弃用。
